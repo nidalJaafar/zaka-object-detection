@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="{{url_for('static', filename='favicon.ico')}}">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <title>Object Detection</title>
     <style>
         body {
@@ -96,6 +96,53 @@
             margin: 0 auto;
         }
 
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            position: relative;
+            display: none;
+        }
+
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .info-message {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            float: right;
+            font-size: 18px;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+            margin-left: 10px;
+        }
+
+        .close-btn:hover {
+            opacity: 0.7;
+        }
+
+        .file-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
         @keyframes spin {
             0% {
                 transform: rotate(0deg);
@@ -104,15 +151,40 @@
                 transform: rotate(360deg);
             }
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message {
+            animation: fadeIn 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>Car-Person Object Detection</h1>
 
+    <div id="errorMessage" class="message error-message">
+        <button class="close-btn" onclick="hideMessage('errorMessage')">&times;</button>
+        <span id="errorText"></span>
+    </div>
+
+    <div id="successMessage" class="message success-message">
+        <button class="close-btn" onclick="hideMessage('successMessage')">&times;</button>
+        <span id="successText"></span>
+    </div>
+
+    <div id="infoMessage" class="message info-message">
+        <button class="close-btn" onclick="hideMessage('infoMessage')">&times;</button>
+        <span id="infoText"></span>
+    </div>
+
     <div class="upload-area" id="uploadArea">
         <p>Click to select an image or drag and drop</p>
-        <input type="file" id="imageInput" accept="image/*" style="display: none;">
+        <div class="file-info">Supported: JPEG images up to 1MB</div>
+        <input type="file" id="imageInput" accept="image/jpeg" style="display: none;">
     </div>
 
     <button class="btn" id="predictBtn" onclick="predict()" disabled>
@@ -147,6 +219,40 @@
 
     let selectedFile = null;
 
+    function showMessage(type, message) {
+        hideAllMessages();
+        const messageEl = document.getElementById(`${type}Message`);
+        const textEl = document.getElementById(`${type}Text`);
+        textEl.textContent = message;
+        messageEl.style.display = 'block';
+
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => hideMessage(`${type}Message`), 5000);
+        }
+    }
+
+    function hideMessage(messageId) {
+        document.getElementById(messageId).style.display = 'none';
+    }
+
+    function hideAllMessages() {
+        hideMessage('errorMessage');
+        hideMessage('successMessage');
+        hideMessage('infoMessage');
+    }
+
+    function showError(message) {
+        showMessage('error', message);
+    }
+
+    function showSuccess(message) {
+        showMessage('success', message);
+    }
+
+    function showInfo(message) {
+        showMessage('info', message);
+    }
+
     uploadArea.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', handleFileSelect);
 
@@ -154,9 +260,11 @@
         e.preventDefault();
         uploadArea.classList.add('dragover');
     });
+
     uploadArea.addEventListener('dragleave', () => {
         uploadArea.classList.remove('dragover');
     });
+
     uploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadArea.classList.remove('dragover');
@@ -174,8 +282,21 @@
     }
 
     function handleFile(file) {
+        hideAllMessages();
+
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
+            showError('Please select an image file. Only image files are supported.');
+            return;
+        }
+
+        if (file.type !== 'image/jpeg') {
+            showError('Please select a JPEG image. Other formats are not currently supported.');
+            return;
+        }
+
+        if (file.size > 1024 * 1024) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            showError(`Image is too large (${sizeMB}MB). Please select an image smaller than 1MB.`);
             return;
         }
 
@@ -190,12 +311,22 @@
         };
         reader.readAsDataURL(file);
 
-        uploadArea.innerHTML = `<p>${file.name} selected</p>`;
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        uploadArea.innerHTML = `
+            <p>${file.name} selected</p>
+            <div class="file-info">Size: ${sizeMB}MB | Type: ${file.type}</div>
+        `;
+
+        showSuccess(`Image "${file.name}" loaded successfully! You can now detect objects.`);
     }
 
     async function predict() {
-        if (!selectedFile) return;
+        if (!selectedFile) {
+            showError('Please select an image first.');
+            return;
+        }
 
+        hideAllMessages();
         loading.style.display = 'block';
         predictBtn.disabled = true;
 
@@ -203,6 +334,8 @@
         formData.append('image', selectedFile);
 
         try {
+            showInfo('Analyzing image for objects...');
+
             const response = await fetch('/api/v1/predict', {
                 method: 'POST',
                 body: formData
@@ -212,17 +345,32 @@
                 const blob = await response.blob();
                 resultImage.src = URL.createObjectURL(blob);
                 resultImage.style.display = 'block';
+                showSuccess('Object detection completed! Check the results below.');
             } else {
-                const error = await response.json();
-                alert(`Error: ${error.error}`);
+                let errorMessage = 'An error occurred during prediction.';
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    if (response.status === 413) {
+                        errorMessage = 'Image is too large. Please select a smaller image.';
+                    } else if (response.status >= 500) {
+                        errorMessage = 'Server error. Please try again later.';
+                    }
+                }
+
+                showError(`Error: ${errorMessage}`);
             }
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            showError(`Network error: ${error.message}. Please check your connection and try again.`);
         } finally {
             loading.style.display = 'none';
             predictBtn.disabled = false;
         }
     }
+
+    hideAllMessages();
 </script>
 </body>
 </html>

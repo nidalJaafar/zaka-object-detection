@@ -13,7 +13,7 @@ model = Model()
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.j2")
+    return render_template("index.html")
 
 
 @app.route("/health", methods=["GET"])
