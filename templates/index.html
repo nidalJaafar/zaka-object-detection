@@ -294,9 +294,9 @@
             return;
         }
 
-        if (file.size > 1024 * 1024) {
+        if (file.size > 5 * 1024 * 1024) {
             const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-            showError(`Image is too large (${sizeMB}MB). Please select an image smaller than 1MB.`);
+            showError(`Image is too large (${sizeMB}MB). Please select an image smaller than 5MB.`);
             return;
         }
 
