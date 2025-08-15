@@ -2,7 +2,7 @@
 
 ## Description
 
-A YOLOv11n based model, used for detecting cars and people in images.
+A YOLO11n based model, used for detecting cars and people in images.
 
 ## Installation
 
@@ -109,7 +109,7 @@ You can try the application on the following https://zaka-object-detection.duckd
 
 ## Limitations
 
-The model is using YOLOv11n as a base model and was trained only on 200 distinct labeled images.
+The model is using YOLO11n as a base model and was trained only on 200 distinct labeled images.
 
 It will not be able to catch all the cars or people in the input image.
 
